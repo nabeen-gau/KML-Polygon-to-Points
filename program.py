@@ -1,5 +1,5 @@
 from numpy import meshgrid, arange, column_stack
-# from matplotlib.pyplot import scatter, show
+from matplotlib.pyplot import scatter, show
 from xml.etree.ElementTree import parse
 from tkinter import Tk, LabelFrame, Button, filedialog, Entry, messagebox, Label, Frame
 from tkinter.ttk import Progressbar
@@ -88,8 +88,8 @@ class GenPoints:
     def plot_graph(self):
         if self.lat_list == [] or self.lon_list == []:
             return
-        # scatter(self.lat_list, self.lon_list)
-        # show()
+        scatter(self.lat_list, self.lon_list)
+        show()
 
     # for minimizing the window or setting the window to default pos and size
     def set_default_window_size(self):
