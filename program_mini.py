@@ -71,7 +71,7 @@ class GenPoints:
         self.window = Tk()
         self.w_width = int(self.window.winfo_vrootwidth() / 2)
         self.w_height = int(self.window.winfo_vrootheight() / 1.5)
-        self.window.wm_resizable(False, False)
+        self.window.wm_resizable(True, True)
         self.set_default_window_size()
         self.window.title('GeneratePoints')
         self.window.protocol("WM_DELETE_WINDOW", self._quit)
