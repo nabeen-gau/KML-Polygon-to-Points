@@ -1,62 +1,12 @@
 from numpy import meshgrid, arange, column_stack
 from matplotlib.pyplot import scatter, show
+import matplotlib.path as mpath
 from xml.etree.ElementTree import parse
 from tkinter import Tk, LabelFrame, Button, filedialog, Entry, messagebox, Label, Frame, IntVar, Checkbutton
 from tkinter.ttk import Progressbar
 from os.path import basename, dirname, join
 from threading import Thread
-
-TEXT_1 = """<?xml version="1.0" encoding="UTF-8"?>
-                    <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
-                    <Document>
-                        <name>TestPath.kml</name>
-                        <StyleMap id="m_ylw-pushpin">
-                            <Pair>
-                                <key>normal</key>
-                                <styleUrl>#s_ylw-pushpin</styleUrl>
-                            </Pair>
-                            <Pair>
-                                <key>highlight</key>
-                                <styleUrl>#s_ylw-pushpin_hl</styleUrl>
-                            </Pair>
-                        </StyleMap>
-                        <Style id="s_ylw-pushpin">
-                            <IconStyle>
-                                <scale>1.1</scale>
-                                <Icon>
-                                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
-                                </Icon>
-                                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
-                            </IconStyle>
-                            <LineStyle>
-                                <color>ffffaa00</color>
-                            </LineStyle>
-                        </Style>
-                        <Style id="s_ylw-pushpin_hl">
-                            <IconStyle>
-                                <scale>1.3</scale>
-                                <Icon>
-                                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
-                                </Icon>
-                                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
-                            </IconStyle>
-                            <LineStyle>
-                                <color>ffffaa00</color>
-                            </LineStyle>
-                        </Style>
-                        <Placemark>
-                            <name>TestPath</name>
-                            <styleUrl>#m_ylw-pushpin</styleUrl>
-                            <LineString>
-                                <tessellate>1</tessellate>
-                                <coordinates>
-"""
-TEXT_2 = """                                </coordinates>
-                        </LineString>
-                        </Placemark>
-                    </Document>
-                    </kml>
-"""
+from kml_format import TEXT_1, TEXT_2, TEXT_3, TEXT_4
 
 
 class GenPoints:
@@ -72,7 +22,7 @@ class GenPoints:
         self.window = Tk()
         self.w_width = int(self.window.winfo_vrootwidth() / 2)
         self.w_height = int(self.window.winfo_vrootheight() / 1.5)
-        self.window.wm_resizable(False, False)
+        self.window.wm_resizable(True, True)
         self.set_default_window_size()
         self.window.title('GeneratePoints')
         self.window.protocol("WM_DELETE_WINDOW", self._quit)
@@ -169,7 +119,7 @@ class GenPoints:
             messagebox.showerror('Error', 'Invalid spacing')
             self.progress_bar.pack_forget()
             return
-        if split_val == 0:
+        if split_val <= 0:
             messagebox.showinfo('Warning', 'Enter spacing')
             return
         self._split_at = split_val
@@ -235,13 +185,13 @@ class GenPoints:
 
     def gen_points(self):
         self.progress_text.config(text='Generating points...')
-        if self.selected_file is None:
+        if self.selected_file is None or self.selected_file == '':
             messagebox.showerror('Error', 'Select file first')
             self.progress_bar.pack_forget()
             self.progress_text.pack_forget()
             return
 
-        elif self.final_file is None:
+        elif self.final_file is None or self.final_file == '':
             messagebox.showerror('Error', 'Choose save location')
             self.progress_bar.pack_forget()
             self.progress_text.pack_forget()
@@ -257,7 +207,7 @@ class GenPoints:
             self.progress_bar.pack_forget()
             return
 
-        if spacing == 0:
+        if spacing <= 0:
             messagebox.showinfo('Warning', 'Enter spacing')
             return
 
@@ -288,49 +238,45 @@ class GenPoints:
 
         co_ords_list.pop()
         co_ords_list.pop()
-        polygon = [(co_ords_list[i], co_ords_list[i + 1]) for i in range(0, len(co_ords_list), 2)]
+        polygon = [[co_ords_list[i], co_ords_list[i + 1]] for i in range(0, len(co_ords_list), 2)]
 
-        def point_in_polygon(point, poly):
-            dx, dy = point
-            n = len(poly)
-            inside = False
-            x_inters = 0
+        self.progress_text.config(text='Generating Points...')
+        # Get the bounds of the polygon
+        minx = min(dx for dx, dy in polygon)
+        miny = min(dy for dx, dy in polygon)
+        max_x = max(dx for dx, dy in polygon)
+        maxy = max(dy for dx, dy in polygon)
 
-            p1x, p1y = poly[0]
-            for pt in range(n + 1):
-                p2x, p2y = poly[pt % n]
-                if dy > min(p1y, p2y):
-                    if dy <= max(p1y, p2y):
-                        if dx <= max(p1x, p2x):
-                            if p1y != p2y:
-                                x_inters = (dy - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                            if p1x == p2x or dx <= x_inters:
-                                inside = not inside
-                p1x, p1y = p2x, p2y
+        # Generate a grid of points using NumPy
+        xs, ys = meshgrid(arange(minx, max_x, spacing), arange(miny, maxy, spacing))
+        pts = column_stack((xs.flatten(), ys.flatten()))
 
-            return inside
+        if len(pts) > 3000000:
+            query = messagebox.askyesno('Do you want to continue?', 'The no. of points generated is more than 3 '
+                                                                    'million and will take some time to complete '
+                                                                    'processing. Do you still want to continue? You '
+                                                                    'can cancel and change spacing if you want by '
+                                                                    'saying No.')
+            if not query:
+                self.progress_bar.stop()
+                self.progress_bar.pack_forget()
+                self._is_running = False
+                self.progress_text.config(text='')
+                return
 
-        def calculate_grid_points(poly, spc):
-            # Get the bounds of the polygon
-            minx = min(dx for dx, dy in poly)
-            miny = min(dy for dx, dy in poly)
-            max_x = max(dx for dx, dy in poly)
-            maxy = max(dy for dx, dy in poly)
+        self.progress_text.config(text='Filtering Points...')
+        # Filter out points that are outside the polygon
+        path = mpath.Path(polygon)
+        pts_cond = path.contains_points(pts)
+        points = []
+        for pt in range(len(pts)):
+            if pts_cond[pt]:
+                points.append(pts[pt])
 
-            # Generate a grid of points using NumPy
-            xs, ys = meshgrid(arange(minx, max_x, spc), arange(miny, maxy, spc))
-            pts = column_stack((xs.flatten(), ys.flatten()))
-
-            # Filter out points that are outside the polygon
-            pts = [point for point in pts if point_in_polygon(point, poly)]
-
-            return pts
-
-        points = calculate_grid_points(polygon, spacing)
         self.lat_list = [i[0] for i in points]
         self.lon_list = [i[1] for i in points]
 
-        self.progress_text.config(text='Formatting and Writing points...')
+        self.progress_text.config(text='Writing points...')
 
         f = None
         if self._separate.get() == 1:
@@ -338,19 +284,20 @@ class GenPoints:
             for i in range(len(points)):
                 if i % val == 0:
                     if f is not None:
-                        f.write(TEXT_2)
+                        f.write(TEXT_4)
                         f.close()
-                    name = basename(self.final_file).replace('.kml', f'_{int(i/val)}.kml')
+                    name = basename(self.final_file).replace('.kml', f'_{int(i / val)}.kml')
                     filename = join(dirname(self.final_file), name)
                     f = open(filename, 'w')
-                    f.write(TEXT_1)
+                    f.write(TEXT_1 + name + TEXT_2 + name + TEXT_3)
                 f.write(f'\t\t\t\t\t{points[i][0]},{points[i][1]},0\n')
+            f.write(TEXT_4)
         else:
             with open(self.final_file, 'w') as f:
-                f.write(TEXT_1)
+                f.write(TEXT_1 + basename(self.final_file) + TEXT_2 + basename(self.final_file) + TEXT_3)
                 for i, j in points:
                     f.write(f'\t\t\t\t\t{i},{j},0\n')
-                f.write(TEXT_2)
+                f.write(TEXT_4)
 
         self.pb.pack(side='left')
         self.progress_bar.stop()
