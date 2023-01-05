@@ -119,7 +119,7 @@ class GenPoints:
             messagebox.showerror('Error', 'Invalid spacing')
             self.progress_bar.pack_forget()
             return
-        if split_val == 0:
+        if split_val <= 0:
             messagebox.showinfo('Warning', 'Enter spacing')
             return
         self._split_at = split_val
@@ -207,7 +207,7 @@ class GenPoints:
             self.progress_bar.pack_forget()
             return
 
-        if spacing == 0:
+        if spacing <= 0:
             messagebox.showinfo('Warning', 'Enter spacing')
             return
 
