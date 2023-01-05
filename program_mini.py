@@ -4,6 +4,7 @@ from tkinter import Tk, LabelFrame, Button, filedialog, Entry, messagebox, Label
 from tkinter.ttk import Progressbar
 from os.path import basename, dirname, join
 from threading import Thread
+from math import isclose
 
 TEXT_1 = """<?xml version="1.0" encoding="UTF-8"?>
                     <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -245,7 +246,7 @@ class GenPoints:
             self.progress_bar.pack_forget()
             return
 
-        if spacing == 0:
+        if spacing <= 0:
             messagebox.showinfo('Warning', 'Enter spacing')
             return
 
@@ -292,7 +293,7 @@ class GenPoints:
                         if dx <= max(p1x, p2x):
                             if p1y != p2y:
                                 x_inters = (dy - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                            if p1x == p2x or dx <= x_inters:
+                            if isclose(p1x,p2x, rel_tol=3*spacing) or dx <= x_inters:
                                 inside = not inside
                 p1x, p1y = p2x, p2y
 
