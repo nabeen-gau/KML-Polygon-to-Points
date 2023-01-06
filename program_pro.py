@@ -1,12 +1,13 @@
-from numpy import meshgrid, arange, column_stack
+from numpy import meshgrid, arange, column_stack, array, append
 from matplotlib.pyplot import scatter, show
-import matplotlib.path as mpath
+from matplotlib.path import Path
 from xml.etree.ElementTree import parse
 from tkinter import Tk, LabelFrame, Button, filedialog, Entry, messagebox, Label, Frame, IntVar, Checkbutton
 from tkinter.ttk import Progressbar
 from os.path import basename, dirname, join
 from threading import Thread
 from kml_format import TEXT_1, TEXT_2, TEXT_3, TEXT_4
+from time import sleep
 
 
 class GenPoints:
@@ -152,7 +153,7 @@ class GenPoints:
         t.start()
 
     def plot_graph(self):
-        if self.lat_list == [] or self.lon_list == []:
+        if self.lat_list.size == 0 or self.lon_list.size == 0:
             return
         scatter(self.lat_list, self.lon_list)
         show()
@@ -219,7 +220,7 @@ class GenPoints:
                 co_ords = child.text
                 break
 
-        co_ords_list = []
+        co_ords_list = array([])
         y = 0
         for i in co_ords.split(','):
             i = i.strip('\n')
@@ -234,28 +235,26 @@ class GenPoints:
                 if y == '':
                     break
             y = -1
-            co_ords_list.append(float(i))
+            co_ords_list = append(co_ords_list, float(i))
 
-        co_ords_list.pop()
-        co_ords_list.pop()
-        polygon = [[co_ords_list[i], co_ords_list[i + 1]] for i in range(0, len(co_ords_list), 2)]
+        co_ords_list = co_ords_list[0:co_ords_list.size - 2]
+        polygon = co_ords_list.reshape(int(co_ords_list.size / 2), 2)
 
         self.progress_text.config(text='Generating Points...')
         # Get the bounds of the polygon
-        minx = min(dx for dx, dy in polygon)
-        miny = min(dy for dx, dy in polygon)
-        max_x = max(dx for dx, dy in polygon)
-        maxy = max(dy for dx, dy in polygon)
+        min_cords = polygon.min(axis=0)
+        max_cords = polygon.max(axis=0)
 
         # Generate a grid of points using NumPy
-        xs, ys = meshgrid(arange(minx, max_x, spacing), arange(miny, maxy, spacing))
+        xs, ys = meshgrid(arange(min_cords[0], max_cords[0], spacing), arange(min_cords[1], max_cords[1], spacing))
         pts = column_stack((xs.flatten(), ys.flatten()))
 
-        if len(pts) > 3000000:
+        if pts.size > 3000000:
             query = messagebox.askyesno('Do you want to continue?', 'The no. of points generated is more than 3 '
                                                                     'million and will take some time to complete '
-                                                                    'processing. Do you still want to continue? You '
-                                                                    'can cancel and change spacing if you want by '
+                                                                    'processing. Do you still want to continue? '
+                                                                    'The program may freeze for a while. '
+                                                                    'You can cancel and change spacing if you want by '
                                                                     'saying No.')
             if not query:
                 self.progress_bar.stop()
@@ -264,24 +263,24 @@ class GenPoints:
                 self.progress_text.config(text='')
                 return
 
-        self.progress_text.config(text='Filtering Points...')
+        self.progress_text.config(text='Filtering Points...(The program may not respond for a while)')
+        sleep(0.1)
         # Filter out points that are outside the polygon
-        path = mpath.Path(polygon)
+        path = Path(polygon)
         pts_cond = path.contains_points(pts)
         points = []
-        for pt in range(len(pts)):
+        for pt in range(int(pts.size / 2)):
             if pts_cond[pt]:
                 points.append(pts[pt])
 
-        self.lat_list = [i[0] for i in points]
-        self.lon_list = [i[1] for i in points]
-
+        points = array(points)
+        self.lat_list, self.lon_list = points.T
         self.progress_text.config(text='Writing points...')
 
         f = None
         if self._separate.get() == 1:
             val = self._split_at
-            for i in range(len(points)):
+            for i in range(points.size):
                 if i % val == 0:
                     if f is not None:
                         f.write(TEXT_4)
@@ -302,7 +301,7 @@ class GenPoints:
         self.pb.pack(side='left')
         self.progress_bar.stop()
         self.progress_bar.pack_forget()
-        self.progress_text.config(text=f'Done..\n Total Points Generated = {len(self.lat_list)}')
+        self.progress_text.config(text=f'Done..\n Total Points Generated = {self.lat_list.size}')
         self._is_running = False
 
 
