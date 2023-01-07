@@ -280,7 +280,7 @@ class GenPoints:
         f = None
         if self._separate.get() == 1:
             val = self._split_at
-            for i in range(points.size):
+            for i in range(int(points.size/2)):
                 if i % val == 0:
                     if f is not None:
                         f.write(TEXT_4)
